@@ -2,7 +2,7 @@
 
 (require htdp/image)
 (require 2htdp/universe)
-(require "chipmunk-ffi.rkt")
+(require "../chipmunk-ffi.rkt")
 
 ; A 2D vector initialized to represent the pull of gravity.
 (define *gravity

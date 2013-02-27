@@ -2,7 +2,7 @@
 
 (require htdp/image)
 (require 2htdp/universe)
-(require "chipmunk-ffi.rkt")
+(require "../chipmunk-ffi.rkt")
 (require ffi/unsafe)
 (require ffi/cvector)
 
