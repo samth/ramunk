@@ -6,8 +6,7 @@
          ffi/unsafe/define
          rnrs/arithmetic/bitwise-6)
 
-(define chpdll (build-path (current-directory) (string->path-element "chipmunk")))
-(define chipmunk (ffi-lib "libchipmunk"))
+(define chipmunk (ffi-lib (build-path "bin" (number->string (system-type 'word)) "libchipmunk")))
 (define-ffi-definer define-chipmunk chipmunk)
 
 (define-syntax (defchipmunk stx)
