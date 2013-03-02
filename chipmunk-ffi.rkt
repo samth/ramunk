@@ -33,7 +33,7 @@
 
 (define _cpFloat _double)
 (define cpFloat? real?)
-(define _cpDataPointer _pointer)
+(define _cpDataPointer _racket)
 (define _size_t _ulong)
 (define _cpHashValue _size_t)
 (define _cpBool _int)
@@ -47,6 +47,8 @@
   (bitwise-and #xFFFFFFFF v))
 (define GRABABLE_MASK (sint32->uint32 (arithmetic-shift 1 31)))
 (define NOT_GRABABLE_MASK (sint32->uint32 (bitwise-not GRABABLE_MASK)))
+(define CP_NO_GROUP 0)
+(define CP_ALL_LAYERS 0)
 (define cpfexp exp)
 
 ; ***********************************************
@@ -194,6 +196,12 @@
 ; Definition for adding a cpBody to a cpSpace
 (defchipmunk cpSpaceAddBody
   (_fun _cpSpace-pointer _cpBody-pointer -> _cpBody-pointer))
+; Definition for removing a cpShape from a cpSpace
+(defchipmunk cpSpaceRemoveShape
+  (_fun _cpSpace-pointer _cpShape-pointer -> _void))
+; Definition for removing a cpBody from a cpSpace
+(defchipmunk cpSpaceRemoveBody
+  (_fun _cpSpace-pointer _cpBody-pointer -> _void))
 
 ; ********
 ; Getters and Setters Start
@@ -258,6 +266,9 @@
 ; Current Time Step Getter
 (defchipmunk cpSpaceGetCurrentTimeStep
   #:ptr (_fun _cpSpace-pointer -> _cpFloat))
+; Query a Point in Space
+(defchipmunk cpSpacePointQueryFirst
+  (_fun _cpSpace-pointer _cpVect _cpLayers _cpGroup -> (_or-null _cpShape-pointer)))
 ; ********
 ; Getters and Setters End
 ; ********
@@ -334,6 +345,14 @@
 (defchipmunk cpBodySetVel #:ptr (_fun _cpBody-pointer _cpVect -> _void))
 (defchipmunk cpBodyGetAngVel #:ptr (_fun _cpBody-pointer -> _cpFloat))
 (defchipmunk cpBodySetAngVel #:ptr (_fun _cpBody-pointer _cpFloat -> _void))
+
+(define (cpBodyGetData cpBody)
+  (ptr-ref (cpBody-data cpBody) _racket))
+
+(define (cpBodySetData cpBody val)
+  (let ((data (malloc-immobile-cell val)))
+    (free-immobile-cell (cpBody-data cpBody))
+    (set-cpBody-data! cpBody data)))
 
 ; ********
 ; Getters and Setters End
