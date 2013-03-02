@@ -465,14 +465,11 @@
 ;(make-cpVect x y))
 (defchipmunk cpv #:ptr (_fun _cpFloat _cpFloat -> _cpVect))
 (define (cpvzero) (cpv 0.0 0.0))
-;; FIXME: I didn't change the following three things, since they look
-;; suspicious (the first and the last start with a "_" but they're not
-;; pointers?)
-(define cpveql
-  (get-ffi-obj "_cpveql" chipmunk (_fun _cpVect _cpVect -> _bool)))
-(define cpvadd
-  (function-ptr (get-ffi-obj "_cpvadd" chipmunk _pointer)
-                (_fun _cpVect _cpVect -> _cpVect)))
+
+(defchipmunk cpveql
+  #:ptr (_fun _cpVect _cpVect -> _bool))
+(defchipmunk cpvadd
+  #:ptr (_fun _cpVect _cpVect -> _cpVect))
 (defchipmunk cpvsub
   #:ptr (_fun _cpVect _cpVect -> _cpVect))
 (defchipmunk cpvneg
