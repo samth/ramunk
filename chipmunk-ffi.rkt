@@ -1,6 +1,7 @@
 #lang racket
 
 ; TODOTODO: Make ffi bindings lazy to reduce startup time.
+; FIXMEFIXME: Some definitions have been commented out because their pointers were not found.
 
 (require ffi/unsafe
          ffi/unsafe/define
@@ -325,25 +326,80 @@
 ; * Start of Chipmunk Body operation definitions.
 ; ***********************************************
 
-(defchipmunk cpBodyAlloc
-  (_fun -> _cpBody-pointer))
-(defchipmunk cpBodyNew
-  (_fun _cpFloat _cpFloat -> _cpBody-pointer))
-(defchipmunk cpBodyFree
-  (_fun _cpBody-pointer -> _void))
+
 (defchipmunk cpCircleShapeNew
   (_fun _cpBody-pointer _cpFloat _cpVect -> _cpShape-pointer))
-; Wake up a sleeping or idle body.
+
+(defchipmunk cpBodyAlloc
+  (_fun -> _cpBody-pointer))
+(defchipmunk cpBodyInit
+  (_fun _cpBody-pointer _cpFloat _cpFloat -> _cpBody-pointer))
+(defchipmunk cpBodyNew
+  (_fun _cpFloat _cpFloat -> _cpBody-pointer))
+(defchipmunk cpBodyInitStatic
+  (_fun _cpBody-pointer -> _cpBody-pointer))
+(defchipmunk cpBodyNewStatic
+  (_fun -> _cpBody-pointer))
+(defchipmunk cpBodyDestroy
+  (_fun _cpBody-pointer -> _cpBody-pointer))
+(defchipmunk cpBodyFree
+  (_fun _cpBody-pointer -> _void))
+(defchipmunk cpBodySanityCheck
+  (_fun _cpBody-pointer -> _void))
 (defchipmunk cpBodyActivate
   (_fun _cpBody-pointer -> _void))
+(defchipmunk cpBodyActivateStatic
+  (_fun _cpBody-pointer _cpShape-pointer -> _void))
+(defchipmunk cpBodySleep
+  (_fun _cpBody-pointer -> _void))
+(defchipmunk cpBodySleepWithGroup
+  (_fun _cpBody-pointer _cpBody-pointer -> _void))
+(defchipmunk cpBodyIsSleeping
+  #:ptr (_fun _cpBody-pointer -> _cpBool))
+(defchipmunk cpBodyIsStatic
+  #:ptr (_fun _cpBody-pointer -> _cpBool))
+(defchipmunk cpBodyIsRogue
+  #:ptr (_fun _cpBody-pointer -> _cpBool))
+(defchipmunk cpBodyUpdateVelocity
+  (_fun _cpBody-pointer _cpVect _cpFloat _cpFloat -> _void))
+(defchipmunk cpBodyLocal2World
+  #:ptr (_fun _cpBody-pointer _cpVect -> _cpVect))
+(defchipmunk cpBodyWorld2Local
+  #:ptr (_fun _cpBody-pointer _cpVect -> _cpVect))
+;(defchipmunk cpBodyResetForces
+;  #:ptr (_fun _cpBody-pointer -> _void))
+;(defchipmunk cpBodyApplyForce
+;   #:ptr (_fun _cpBody-pointer _cpVect _cpVect -> _void))
+;(defchipmunk cpBodyApplyImpulse
+;   #:ptr (_fun _cpBody-pointer _cpVect _cpVect -> _void))
+;(defchipmunk cpBodyGetVelAtWorldPoint
+;   #:ptr (_fun _cpBody-pointer _cpVect -> _cpVect))
+;(defchipmunk cpBodyGetVelAtLocalPoint
+;   #:ptr (_fun _cpBody-pointer _cpVect -> _cpVect))
+(defchipmunk cpBodyKineticEnergy
+  #:ptr (_fun _cpBody-pointer -> _cpFloat))
+;(defchipmunk cpBodyEachShape
+;  (_fun _cpBody-pointer _cpBodyShapeIteratorFunc _cpDataPointer -> void))
+;(defchipmunk cpBodyEachConstraint
+;  (_fun _cpBody-pointer _cpBodyConstraintIteratorFunc _cpDataPointer -> void))
+;(defchipmunk cpBodyEachArbiter
+;  (_fun _cpBody-pointer _cpBodyArbiterIteratorFunc _cpDataPointer -> void))
+  
 ; ********
 ; Getters and Setters Start
 ; ********
+(defchipmunk cpBodyGetMass #:ptr (_fun _cpBody-pointer -> _cpFloat))
+(defchipmunk cpBodyGetMoment #:ptr (_fun _cpBody-pointer -> _cpFloat))
 (defchipmunk cpBodyGetPos #:ptr (_fun _cpBody-pointer -> _cpVect))
-(defchipmunk cpBodySetPos (_fun _cpBody-pointer _cpVect -> _void))
+(defchipmunk cpBodyGetAngle #:ptr (_fun _cpBody-pointer -> _cpFloat))
 (defchipmunk cpBodyGetVel #:ptr (_fun _cpBody-pointer -> _cpVect))
-(defchipmunk cpBodySetVel #:ptr (_fun _cpBody-pointer _cpVect -> _void))
 (defchipmunk cpBodyGetAngVel #:ptr (_fun _cpBody-pointer -> _cpFloat))
+
+(defchipmunk cpBodySetMass (_fun _cpBody-pointer _cpFloat -> _void))
+(defchipmunk cpBodySetMoment (_fun _cpBody-pointer _cpFloat -> _void))
+(defchipmunk cpBodySetPos (_fun _cpBody-pointer _cpVect -> _void))
+(defchipmunk cpBodySetAngle (_fun _cpBody-pointer _cpFloat -> _void))
+(defchipmunk cpBodySetVel #:ptr (_fun _cpBody-pointer _cpVect -> _void))
 (defchipmunk cpBodySetAngVel #:ptr (_fun _cpBody-pointer _cpFloat -> _void))
 
 (define (cpBodyGetData cpBody)
@@ -357,8 +413,6 @@
 ; ********
 ; Getters and Setters End
 ; ********
-(defchipmunk cpBodyLocal2World
-  #:ptr (_fun _cpBody-pointer _cpVect -> _cpVect))
 
 ; ***********************************************
 ; * End of Chipmunk Body operation definitions.
@@ -465,7 +519,12 @@
 ;(make-cpVect x y))
 (defchipmunk cpv #:ptr (_fun _cpFloat _cpFloat -> _cpVect))
 (define (cpvzero) (cpv 0.0 0.0))
-
+(defchipmunk cpvslerp
+  (_fun _cpVect _cpVect _cpFloat -> _cpVect))
+(defchipmunk cpvslerpconst
+  (_fun _cpVect _cpVect _cpFloat -> _cpVect))
+(defchipmunk cpvstr
+  (_fun _cpVect -> _string))
 (defchipmunk cpveql
   #:ptr (_fun _cpVect _cpVect -> _bool))
 (defchipmunk cpvadd
@@ -478,14 +537,42 @@
   #:ptr (_fun _cpVect _cpFloat -> _cpVect))
 (defchipmunk cpvcross
   #:ptr (_fun _cpVect _cpVect -> _cpFloat))
+(defchipmunk cpvdot
+  #:ptr (_fun _cpVect _cpVect -> _cpFloat))
 (defchipmunk cpvperp
   #:ptr (_fun _cpVect -> _cpVect))
-(define cpvlengthsq
-  (get-ffi-obj "_cpvlengthsq" chipmunk (_fun _cpVect -> _cpFloat)))
+(defchipmunk cpvrperp
+  #:ptr (_fun _cpVect -> _cpVect))
+(defchipmunk cpvproject
+  #:ptr (_fun _cpVect _cpVect -> _cpVect))
+;(defchipmunk cpvforangle
+;  #:ptr (_fun _cpFloat -> _cpVect))
+;(defchipmunk cpvtoangle
+;  #:ptr (_fun _cpVect -> _cpFloat))
+(defchipmunk cpvrotate
+  #:ptr (_fun _cpVect _cpVect -> _cpVect))
+(defchipmunk cpvunrotate
+  #:ptr (_fun _cpVect _cpVect -> _cpVect))
+;(defchipmunk cpvlength
+;  #:ptr (_fun _cpVect -> _cpFloat))
 (defchipmunk cpvlerp
-  #:ptr (_fun _cpVect _cpVect _cpFloat -> _cpVect))
+  #:ptr (_fun _cpVect _cpVect -> _cpFloat))
+(defchipmunk cpvnormalize
+  #:ptr (_fun _cpVect -> _cpVect))
 (defchipmunk cpvnormalize_safe
   #:ptr (_fun _cpVect -> _cpVect))
+(defchipmunk cpvclamp
+  #:ptr (_fun _cpVect _cpFloat -> _cpVect))
+(defchipmunk cpvlerpconst
+  #:ptr (_fun _cpVect _cpVect -> _cpVect))
+(defchipmunk cpvdist
+  #:ptr (_fun _cpVect _cpVect -> _cpFloat))
+(defchipmunk cpvdistsq
+  #:ptr (_fun _cpVect _cpVect -> _cpFloat))
+(defchipmunk cpvnear
+  #:ptr (_fun _cpVect _cpVect -> _cpFloat))
+(define cpvlengthsq
+  (get-ffi-obj "_cpvlengthsq" chipmunk (_fun _cpVect -> _cpFloat)))
 
 ; ***********************************************
 ; * End of vector operation definitions.
