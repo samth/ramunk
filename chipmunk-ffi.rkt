@@ -28,6 +28,9 @@
      #'(begin (provide name)
               (define-chipmunk name type))]))
 
+(define (sint32->uint32 v)
+  (bitwise-and #xFFFFFFFF v))
+
 ; ***********************************************
 ; * Start of Chipmunk type definitions
 ; ***********************************************
@@ -35,6 +38,7 @@
 (define _cpFloat _double)
 (define cpFloat? real?)
 (define _cpDataPointer _racket)
+(define _cpKeyPointer _pointer)
 (define _size_t _ulong)
 (define _cpHashValue _size_t)
 (define _cpBool _int)
@@ -44,8 +48,7 @@
 (define _cpCollisionType _uint)
 (define _cpGroup _uint)
 (define _cpLayers _uint)
-(define (sint32->uint32 v)
-  (bitwise-and #xFFFFFFFF v))
+
 (define GRABABLE_MASK (sint32->uint32 (arithmetic-shift 1 31)))
 (define NOT_GRABABLE_MASK (sint32->uint32 (bitwise-not GRABABLE_MASK)))
 (define CP_NO_GROUP 0)
@@ -123,7 +126,7 @@
         _cpSpace-pointer
         _pointer
         -> _cpBool))
-; Definitoin of 'Collision pre-solve event function callback type'.
+; Definition of 'Collision pre-solve event function callback type'.
 (define _cpCollisionPreSolveFunc (_fun _cpArbiter-pointer
         _cpSpace-pointer
         _pointer
@@ -157,6 +160,30 @@
    [collision_type _cpCollisionType]
    [group _cpGroup]
    [layers _cpLayers]))
+; Definition of Chipmunk solve functions for _cpConstraint
+(define _cpConstraintPreSolveFunc (_fun _cpSpace-pointer -> _void))
+(define _cpConstraintPostSolveFunc (_fun _cpSpace-pointer -> _void))
+; Definition of cpConstraint, 'Basic Unit of Simulation in Chipmunk'
+(define-cstruct _cpConstraint
+  ([a _cpBody]
+   [b _cpBody]
+   [maxForce _cpFloat]
+   [errorBias _cpFloat]
+   [minForce _cpFloat]
+   [preSolve _cpConstraintPreSolveFunc]
+   [postSolve _cpConstraintPostSolveFunc]
+   [data _cpDataPointer]))
+
+; Definition of 'Post Step callback function type'
+(define _cpPostStepFunc (_fun _cpSpace-pointer _cpKeyPointer _cpDataPointer -> _void))
+(define _cpSpacePointQueryFunc (_fun _cpShape-pointer _cpDataPointer -> _void))
+(define _cpSpaceNearestPointQueryFunc (_fun _cpShape-pointer _cpFloat _cpVect _cpDataPointer -> _void))
+(define _cpSpaceSegmentQueryFunc (_fun _cpShape-pointer _cpFloat _cpVect _cpDataPointer -> _void))
+(define _cpSpaceBBQueryFunc (_fun _cpShape-pointer _cpDataPointer -> _void))
+;(define _cpSpaceShapeQueryFunc (_fun _cpShape-pointer _cpContactPointSet _cpDataPointer -> _void))
+(define _cpSpaceBodyIteratorFunc (_fun _cpBody-pointer _cpDataPointer -> _void))
+(define _cpSpaceShapeIteratorFunc (_fun _cpShape-pointer _cpDataPointer -> _void))
+(define _cpSpaceConstraintIteratorFunc (_fun _cpConstraint-pointer _cpDataPointer -> _void))
 
 ; ***********************************************
 ; * End of Chipmunk struct definitions
@@ -171,23 +198,31 @@
 ; ***
 ; cpSpace creation functions
 ; ***
+
 (defchipmunk cpSpaceAlloc (_fun -> _cpSpace-pointer))
 (defchipmunk cpSpaceInit (_fun _cpSpace-pointer -> _cpSpace-pointer))
-; Definition for New Space Construction
 (defchipmunk cpSpaceNew (_fun -> _cpSpace-pointer))
+
 ; ***
 ; cpSpace destruction functions
 ; ***
+
 (defchipmunk cpSpaceDestroy (_fun _cpSpace-pointer -> _void))
 (defchipmunk cpSpaceFree (_fun _cpSpace-pointer -> _void))
 (defchipmunk cpSpaceAddShape (_fun _cpSpace-pointer _cpShape-pointer -> _cpShape-pointer))
+(defchipmunk cpSpaceAddStaticShape (_fun _cpSpace-pointer _cpShape-pointer -> _cpShape))
 (defchipmunk cpSpaceAddBody (_fun _cpSpace-pointer _cpBody-pointer -> _cpBody-pointer))
+(defchipmunk cpSpaceAddConstraint (_fun _cpSpace-pointer _cpConstraint-pointer -> _cpConstraint-pointer))
+(defchipmunk cpSpaceAddPostStepCallback (_fun _cpSpace-pointer (_or-null _cpPostStepFunc) _cpKeyPointer _cpDataPointer -> _cpBool))
 (defchipmunk cpSpaceRemoveShape (_fun _cpSpace-pointer _cpShape-pointer -> _void))
+(defchipmunk cpSpaceRemoveStaticShape (_fun _cpSpace-pointer _cpShape-pointer -> _cpShape))
 (defchipmunk cpSpaceRemoveBody (_fun _cpSpace-pointer _cpBody-pointer -> _void))
+(defchipmunk cpSpaceRemoveConstraint (_fun _cpSpace-pointer _cpConstraint-pointer -> _cpConstraint-pointer))
 
 ; ********
 ; Getters and Setters Start
 ; ********
+
 (defchipmunk cpSpaceGetIterations #:ptr (_fun _cpSpace-pointer -> _int))
 (defchipmunk cpSpaceSetIterations #:ptr (_fun _cpSpace-pointer _int -> _void))
 (defchipmunk cpSpaceGetGravity #:ptr (_fun _cpSpace-pointer -> _cpVect))
@@ -210,21 +245,24 @@
 (defchipmunk cpSpaceSetUserData #:ptr (_fun _cpSpace-pointer _cpDataPointer -> _void))
 (defchipmunk cpSpaceGetStaticBody #:ptr (_fun _cpSpace-pointer -> _cpBody-pointer))
 (defchipmunk cpSpaceGetCurrentTimeStep #:ptr (_fun _cpSpace-pointer -> _cpFloat))
-(defchipmunk cpSpacePointQueryFirst (_fun _cpSpace-pointer _cpVect _cpLayers _cpGroup -> (_or-null _cpShape-pointer)))
+
 ; ********
 ; Getters and Setters End
 ; ********
 ; Collision Handlers Start
 ; ********
-; Default Collision Handler
-(defchipmunk cpSpaceSetDefaultCollisionHandler (_fun _cpSpace-pointer
+
+(defchipmunk cpSpaceSetDefaultCollisionHandler
+  (_fun _cpSpace-pointer
         _cpCollisionBeginFunc
         _cpCollisionPreSolveFunc
         _cpCollisionPostSolveFunc
         _cpCollisionSeparateFunc
         _pointer
         -> _void))
-(defchipmunk cpSpaceAddCollisionHandler (_fun _cpSpace-pointer
+
+(defchipmunk cpSpaceAddCollisionHandler
+  (_fun _cpSpace-pointer
         _cpCollisionType
         _cpCollisionType
         _cpCollisionBeginFunc
@@ -233,9 +271,38 @@
         _cpCollisionSeparateFunc
         _pointer
         -> _void))
+
+(defchipmunk cpSpaceRemoveCollisionHandler
+  (_fun _cpSpace-pointer
+        _cpCollisionType
+        _cpCollisionType
+        -> _void))
+
+
 ; ********
 ; Collision Handlers End
 ; ********
+
+(defchipmunk cpSpaceIsLocked #:ptr (_fun _cpSpace-pointer -> _cpBool))
+(defchipmunk cpSpaceContainsShape (_fun _cpSpace-pointer _cpShape-pointer -> _cpBool))
+(defchipmunk cpSpaceContainsBody (_fun _cpSpace-pointer _cpBody-pointer -> _cpBool))
+(defchipmunk cpSpaceContainsConstraint (_fun _cpSpace-pointer _cpConstraint-pointer -> _cpBool))
+(defchipmunk cpSpacePointQuery (_fun _cpSpace-pointer _cpVect _cpLayers _cpGroup _cpSpacePointQueryFunc _cpDataPointer -> _void))
+(defchipmunk cpSpacePointQueryFirst (_fun _cpSpace-pointer _cpVect _cpLayers _cpGroup -> (_or-null _cpShape-pointer)))
+(defchipmunk cpSpaceNearestPointQuery (_fun _cpSpace-pointer _cpVect _cpFloat _cpLayers _cpGroup _cpSpaceNearestPointQueryFunc _cpDataPointer -> _void))
+(defchipmunk cpSpaceNearestPointQueryNearest (_fun _cpSpace-pointer _cpVect _cpFloat _cpLayers _cpGroup _cpSpaceNearestPointQueryFunc _cpDataPointer -> _void))
+(defchipmunk cpSpaceSegmentQuery (_fun _cpSpace-pointer _cpVect _cpVect _cpLayers _cpGroup _cpGroup _cpSpaceSegmentQueryFunc -> _void))
+;(defchipmunk cpSpaceSegmentQueryFirst (_fun _cpSpace-pointer _cpVect _cpVect _cpLayers _cpGroup _cpSegmenQueryInfo -> _cpShape-pointer))
+(defchipmunk cpSpaceBBQuery (_fun _cpSpace-pointer _cpBB-pointer _cpLayers _cpGroup _cpSpaceBBQueryFunc _cpDataPointer -> _void))
+;(defchipmunk cpSpaceShapeQuery (_fun _cpSpace-pointer _cpShape-pointer _cpSpaceShapeQueryFunc _cpDataPointer -> _cpBool))
+(defchipmunk cpSpaceActivateShapesTouchingShape (_fun _cpSpace-pointer _cpShape-pointer -> _void))
+(defchipmunk cpSpaceEachBody (_fun _cpSpace-pointer _cpSpaceBodyIteratorFunc -> _void))
+(defchipmunk cpSpaceEachShape (_fun _cpSpace-pointer _cpSpaceShapeIteratorFunc -> _void))
+(defchipmunk cpSpaceEachConstraint (_fun _cpSpace-pointer _cpSpaceConstraintIteratorFunc -> _void))
+(defchipmunk cpSpaceReindexStatic (_fun _cpSpace-pointer -> _void))
+(defchipmunk cpSpaceReindexShape (_fun _cpSpace-pointer _cpShape-pointer -> _void))
+(defchipmunk cpSpaceReindexShapesForBody (_fun _cpSpace-pointer _cpBody-pointer -> _void))
+(defchipmunk cpSpaceUseSpatialHash (_fun _cpSpace-pointer _cpFloat _int -> _void))
 (defchipmunk cpSpaceStep (_fun _cpSpace-pointer _cpFloat -> _void))
 
 ; ***********************************************
@@ -247,7 +314,9 @@
 ; ***********************************************
 ; * Start of Chipmunk Bounding Box operation definitions.
 ; ***********************************************
+
 (defchipmunk cpBBNew #:ptr (_fun _cpFloat _cpFloat _cpFloat _cpFloat -> _cpBB))
+
 ; ********
 ; Getters and Setters Start
 ; ********
@@ -263,9 +332,6 @@
 ; ***********************************************
 ; * Start of Chipmunk Body operation definitions.
 ; ***********************************************
-
-
-(defchipmunk cpCircleShapeNew (_fun _cpBody-pointer _cpFloat _cpVect -> _cpShape-pointer))
 
 (defchipmunk cpBodyAlloc (_fun -> _cpBody-pointer))
 (defchipmunk cpBodyInit (_fun _cpBody-pointer _cpFloat _cpFloat -> _cpBody-pointer))
@@ -298,6 +364,7 @@
 ; ********
 ; Getters and Setters Start
 ; ********
+
 (defchipmunk cpBodyGetMass #:ptr (_fun _cpBody-pointer -> _cpFloat))
 (defchipmunk cpBodyGetMoment #:ptr (_fun _cpBody-pointer -> _cpFloat))
 (defchipmunk cpBodyGetPos #:ptr (_fun _cpBody-pointer -> _cpVect))
@@ -313,7 +380,7 @@
 (defchipmunk cpBodySetAngVel #:ptr (_fun _cpBody-pointer _cpFloat -> _void))
 
 (define (cpBodyGetData cpBody)
-  (ptr-ref (cpBody-data cpBody) _racket))
+  (ptr-ref (cpBody-data cpBody) _cpDataPointer))
 
 (define (cpBodySetData cpBody val)
   (let ((data (malloc-immobile-cell val)))
@@ -339,10 +406,14 @@
 (defchipmunk cpShapeCacheBB (_fun _cpShape-pointer -> _cpBB))
 (defchipmunk cpShapeUpdate (_fun _cpShape-pointer _cpVect _cpVect -> _cpBB))
 (defchipmunk cpShapePointQuery (_fun _cpShape-pointer _cpVect -> _cpBool))
+
 (defchipmunk cpSegmentShapeNew (_fun _cpBody-pointer _cpVect _cpVect _cpFloat -> _cpShape-pointer))
+(defchipmunk cpCircleShapeNew (_fun _cpBody-pointer _cpFloat _cpVect -> _cpShape-pointer))
+
 ; ********
 ; Getters and Setters Start
 ; ********
+
 (defchipmunk cpShapeGetBody #:ptr (_fun _cpShape-pointer -> _cpBody-pointer))
 (defchipmunk cpShapeSetBody #:ptr (_fun _cpShape-pointer _cpBody-pointer -> _void))
 (defchipmunk cpShapeGetBB #:ptr (_fun _cpShape-pointer -> _cpBB))
@@ -362,6 +433,7 @@
 (defchipmunk cpShapeSetGroup #:ptr (_fun _cpShape-pointer _cpGroup -> _void))
 (defchipmunk cpShapeGetLayers #:ptr (_fun _cpShape-pointer -> _cpLayers))
 (defchipmunk cpShapeSetLayers #:ptr (_fun _cpShape-pointer _cpLayers -> _void))
+
 ; ********
 ; Getters and Setters End
 ; ********
@@ -375,6 +447,7 @@
 ; ***********************************************
 ; * Start of vector operation definitions.
 ; ***********************************************
+
 ;(define (cpv x y)
 ;(make-cpVect x y))
 (defchipmunk cpv #:ptr (_fun _cpFloat _cpFloat -> _cpVect))
@@ -405,8 +478,7 @@
 (defchipmunk cpvdist #:ptr (_fun _cpVect _cpVect -> _cpFloat))
 (defchipmunk cpvdistsq #:ptr (_fun _cpVect _cpVect -> _cpFloat))
 (defchipmunk cpvnear #:ptr (_fun _cpVect _cpVect -> _cpFloat))
-(define cpvlengthsq
-  (get-ffi-obj "_cpvlengthsq" chipmunk (_fun _cpVect -> _cpFloat)))
+(defchipmunk cpvlengthsq #:ptr (_fun _cpVect -> _cpFloat))
 
 ; ***********************************************
 ; * End of vector operation definitions.
@@ -417,10 +489,12 @@
 ; ***********************************************
 ; * Start of PolyShape operation definitions.
 ; ***********************************************
+
 (defchipmunk cpBoxShapeNew (_fun _cpBody-pointer _cpFloat _cpFloat -> _cpShape-pointer))
 (defchipmunk cpBoxShapeNew2 (_fun _cpBody-pointer _cpBB -> _cpShape-pointer))
 (defchipmunk cpPolyShapeGetNumVerts (_fun _cpShape-pointer -> _int))
 (defchipmunk cpPolyShapeGetVert (_fun _cpShape-pointer _int -> _cpVect))
+
 ; ***********************************************
 ; * End of PolyShape operation definitions.
 ; ***********************************************
@@ -443,6 +517,7 @@
               (out2 : (_ptr o _cpShape-pointer))
               -> _void
               -> (values out1 out2)))
+
 ; ***********************************************
 ; * End of Arbiter operation definitions.
 ; ***********************************************
@@ -459,9 +534,11 @@
 (defchipmunk cpMomentForCircle (_fun _cpFloat _cpFloat _cpFloat _cpVect -> _cpFloat))
 (defchipmunk cpMomentForBox (_fun _cpFloat _cpFloat _cpFloat -> _cpFloat))
 (defchipmunk cpfabs #:ptr (_fun _cpFloat -> _cpFloat))
+
 ; ********
 ; constraints/util.h
 ; ********
+
 ; FIXME: k_scalar_body does not seem to be defined in
 ; the dll for some reason. Would be nice to find out
 ; why. For now, it is implemented in pure Racket.
@@ -484,5 +561,3 @@
 ; ***********************************************
 ; * Start of various operation definitions.
 ; ***********************************************
-
-(provide (all-defined-out))
