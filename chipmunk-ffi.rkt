@@ -1,7 +1,8 @@
 #lang racket
 
 ; TODOTODO: Make ffi bindings lazy to reduce startup time.
-; FIXMEFIXME: Some definitions have been commented out because their pointers were not found.
+; TODOTODO: Add some missing structures.
+; FIXMEFIXME: Some functions have been commented out because their pointers were not found.
 
 (require ffi/unsafe
          ffi/unsafe/define
@@ -65,24 +66,20 @@
 ; * Start of Chipmunk struct definitions
 ; ***********************************************
 
-; Definition of Chipmunk Vector
 (define-cstruct _cpVect
   ([x _cpFloat]
    [y _cpFloat]))
-; Definition of Chipmunk rigid body functions for _cpBody
+
 (define _cpBodyVelocityFunc (_fun _pointer _cpVect _cpFloat _cpFloat -> _void))
 (define _cpBodyPositionFunc (_fun _pointer _cpFloat -> _void))
-; Definition of Chipmunk Body
+
 (define-cstruct _cpBody
-  (; Integration Functions
-   [velocity_func _cpBodyVelocityFunc]
+  ([velocity_func _cpBodyVelocityFunc]
    [position_func _cpBodyPositionFunc]
-   ; Mass Properties
    [m _cpFloat]
    [m_inv _cpFloat]
    [i _cpFloat]
    [i_inv _cpFloat]
-   ; Positional Properties
    [p _cpVect]
    [v _cpVect]
    [f _cpVect]
@@ -90,12 +87,10 @@
    [w _cpFloat]
    [t _cpFloat]
    [rot _cpVect]
-   ; User Definable Fields
    [data _cpDataPointer]
-   ; Internally Used Fields
    [v_bias _cpVect]
    [w_bias _cpFloat]))
-; Definition of Chipmunk Space
+
 (define-cstruct _cpSpace
   ([iterations _int]
    [gravity _cpVect]
@@ -108,47 +103,18 @@
    [enableContactGraph _cpBool]
    [data _cpDataPointer]
    [staticBody _cpBody-pointer]))
-; Definition of Chipmunk Arbiter
-; which is 'A colliding pair of shapes'.
+
 (define-cstruct _cpArbiter
-  (
-   ; Calculated value to use for the elasticity coefficient.
-   ; Override in a pre-solve collision handler for custom behavior.
-   [e _cpFloat]
-   ; Calculated value to use for the friction coefficient.
-   ; Override in a pre-solve collision handler for custom behavior.
+  ([e _cpFloat]
    [u _cpFloat]
-   ; Calculated value to use for applying surface velocities.
-   ; Override in a pre-solve collision handler for custom behavior.
    [surface_vr _cpVect]))
-; Definition of 'Collision begin event function callback type'.
-(define _cpCollisionBeginFunc (_fun _cpArbiter-pointer
-        _cpSpace-pointer
-        _pointer
-        -> _cpBool))
-; Definition of 'Collision pre-solve event function callback type'.
-(define _cpCollisionPreSolveFunc (_fun _cpArbiter-pointer
-        _cpSpace-pointer
-        _pointer
-        -> _cpBool))
-; Definition of 'Collision post-solve event function callback type'.
-(define _cpCollisionPostSolveFunc (_fun _cpArbiter-pointer
-        _cpSpace-pointer
-        _pointer
-        -> _void))
-; Definition of 'Collision separate event function callback type'.
-(define _cpCollisionSeparateFunc (_fun _cpArbiter-pointer
-        _cpSpace-pointer
-        _pointer
-        -> _void))
-; Definition of cpBB, 'Chipmunk's axis-aligned 2D bounding box
-; type. (left, bottom, right. top)'.
+
 (define-cstruct _cpBB
   ([l _cpFloat]
    [b _cpFloat]
    [r _cpFloat]
    [t _cpFloat]))
-; Definition of cpShape, 'Opaque collision shape struct'.
+
 (define-cstruct _cpShape
   ([body _cpBody-pointer]
    [bb _cpBB]
@@ -160,10 +126,10 @@
    [collision_type _cpCollisionType]
    [group _cpGroup]
    [layers _cpLayers]))
-; Definition of Chipmunk solve functions for _cpConstraint
+
 (define _cpConstraintPreSolveFunc (_fun _cpSpace-pointer -> _void))
 (define _cpConstraintPostSolveFunc (_fun _cpSpace-pointer -> _void))
-; Definition of cpConstraint, 'Basic Unit of Simulation in Chipmunk'
+
 (define-cstruct _cpConstraint
   ([a _cpBody]
    [b _cpBody]
@@ -174,16 +140,27 @@
    [postSolve _cpConstraintPostSolveFunc]
    [data _cpDataPointer]))
 
-; Definition of 'Post Step callback function type'
+; ********
+; Funtion types start
+; ********
+
+(define _cpCollisionBeginFunc (_fun _cpArbiter-pointer _cpSpace-pointer _pointer -> _cpBool))
+(define _cpCollisionPreSolveFunc (_fun _cpArbiter-pointer _cpSpace-pointer _pointer -> _cpBool))
+(define _cpCollisionPostSolveFunc (_fun _cpArbiter-pointer _cpSpace-pointer _pointer -> _void))
+(define _cpCollisionSeparateFunc (_fun _cpArbiter-pointer _cpSpace-pointer _pointer -> _void))
+
 (define _cpPostStepFunc (_fun _cpSpace-pointer _cpKeyPointer _cpDataPointer -> _void))
 (define _cpSpacePointQueryFunc (_fun _cpShape-pointer _cpDataPointer -> _void))
 (define _cpSpaceNearestPointQueryFunc (_fun _cpShape-pointer _cpFloat _cpVect _cpDataPointer -> _void))
 (define _cpSpaceSegmentQueryFunc (_fun _cpShape-pointer _cpFloat _cpVect _cpDataPointer -> _void))
 (define _cpSpaceBBQueryFunc (_fun _cpShape-pointer _cpDataPointer -> _void))
-;(define _cpSpaceShapeQueryFunc (_fun _cpShape-pointer _cpContactPointSet _cpDataPointer -> _void))
 (define _cpSpaceBodyIteratorFunc (_fun _cpBody-pointer _cpDataPointer -> _void))
 (define _cpSpaceShapeIteratorFunc (_fun _cpShape-pointer _cpDataPointer -> _void))
 (define _cpSpaceConstraintIteratorFunc (_fun _cpConstraint-pointer _cpDataPointer -> _void))
+
+; ********
+; Function types end
+; ********
 
 ; ***********************************************
 ; * End of Chipmunk struct definitions
