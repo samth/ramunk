@@ -4,30 +4,26 @@
 ; TODOTODO: Add some missing structures.
 ; FIXMEFIXME: Some functions have been commented out because their pointers were not found.
 
-(require ffi/unsafe
+(require (for-syntax racket/syntax)
+         
+         ffi/unsafe
          ffi/unsafe/define
          rnrs/arithmetic/bitwise-6
          racket/runtime-path)
 
 (define-runtime-path chipmunk-binary (build-path "bin" (number->string (system-type 'word)) "libchipmunk"))
 (define chipmunk (ffi-lib chipmunk-binary))
-(define-ffi-definer define-chipmunk chipmunk)
+(define-ffi-definer define-chipmunk chipmunk #:provide provide-protected)
 
 (define-syntax (defchipmunk stx)
   (syntax-case stx ()
-    [(defchipmunk name #:ptr type)
-     #`(begin (provide name)
-              (define name
-                (let ()
-                  (define-chipmunk ptr _pointer
-                    #:c-id #,(datum->syntax
-                              #'name
-                              (string->symbol
-                               (format "_~a" (syntax->datum #'name)))))
-                  (function-ptr ptr type))))]
-    [(defchipmunk name type)
-     #'(begin (provide name)
-              (define-chipmunk name type))]))
+    [(_ name #:ptr type)
+     #`(define-chipmunk name _pointer
+         #:c-id #,(format-id #'name "_~a" #'name)
+         #:wrap (lambda (ffi)
+                  (function-ptr ffi type)))]
+    [(_ name type)
+     #'(define-chipmunk name type)]))
 
 (define (sint32->uint32 v)
   (bitwise-and #xFFFFFFFF v))

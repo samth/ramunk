@@ -63,9 +63,9 @@
 (cpSpaceSetGravity the-space space-gravity)
 (box the-space space-width space-height space-elasticity)
 
-; Definining a particle
+; Definining a particle as a cpShape
 
-(struct particle (body shape radius))
+(struct particle (radius))
 
 (define (make-particle position velocity mass diameter)
   (let*
@@ -74,10 +74,9 @@
        (shape (cpCircleShapeNew body radius (cpvzero))))
     (cpBodySetPos body position)
     (cpBodySetVel body velocity)
+    (set-cpShape-data! shape (particle radius))
     (cpShapeSetElasticity shape 1.0)
-    (cpSpaceAddBody the-space body)
-    (cpSpaceAddShape the-space shape)
-    (particle body shape radius)))
+    shape))
 
 (define (make-random-particle position velocity)
   (make-particle position
@@ -88,27 +87,41 @@
 (define (make-particles amount)
   (build-list amount
               (lambda (i)
-                (make-random-particle particle-origin
-                                      (make-cpv (random-in particle-velocity)
-                                                (random-in particle-velocity))))))
+                (particle-enable 
+                 (make-random-particle particle-origin
+                                       (make-cpv (random-in particle-velocity)
+                                                 (random-in particle-velocity)))
+                 the-space))))
+
+(define (particle-enable particle space)
+  (cpSpaceAddBody the-space (cpShapeGetBody particle))
+  (cpSpaceAddShape the-space particle))
+
+(define (particle-disable particle space)
+  (cpSpaceRemoveBody the-space (cpShapeGetBody particle))
+  (cpSpaceRemoveShape the-space particle))
+
 
 ; Keeping track of the interactions
 
 (define particles (make-particles 5))
 (define mouse-origin #f)
+(define mouse-particle #f)
 (define mouse-target (cpvzero))
 
 (define (add-particle! particle)
-  (set! particles (cons particle particles)))
+  (set! particles (cons particle particles))
+  particle)
 
 (define (remove-particle! particle)
-  (set! particles (remove particle particles)))
+  (set! particles (remove particle particles))
+  particle)
 
 ; Drawing the environment
 
 (define (draw-particle particle scene)
-  (let* ((position (cpBodyGetPos (particle-body particle))))
-    (place-image (circle (particle-radius particle) "solid" particle-color)
+  (let* ((position (cpBodyGetPos (cpShapeGetBody particle))))
+    (place-image (circle (particle-radius (cpShape-data particle)) "solid" particle-color)
                  (cpVect-x position)
                  (cpVect-y position)
                  scene)))
@@ -139,9 +152,14 @@
                ((drag)
                 (set! mouse-target (make-cpv x y)))
                ((button-down)
-                (set! mouse-origin (make-cpv x y)))
+                (let ((shape
+                       (or (cpSpacePointQueryFirst the-space (make-cpv x y) CP_ALL_LAYERS CP_NO_GROUP)
+                           (add-particle! (make-random-particle (make-cpv x y) (cpvzero))))))
+                  (set! mouse-origin (make-cpv x y))
+                  (set! mouse-particle shape)))
                ((button-up)
-                (add-particle!
-                 (make-random-particle mouse-origin (cpvsub (make-cpv x y) mouse-origin)))
+                (cpBodySetVel (cpShapeGetBody mouse-particle) (cpvsub (make-cpv x y) mouse-origin))
+                (particle-enable mouse-particle the-space)
+                (add-particle! mouse-particle)
                 (set! mouse-origin #f)))
              ticks)])
