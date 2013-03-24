@@ -1,219 +1,31 @@
-#lang racket
+#lang racket/base
 
 ; TODOTODO: Make ffi bindings lazy to reduce startup time.
 ; TODOTODO: Add some missing structures.
 
-(require (for-syntax racket/syntax
-                     syntax/keyword
-                     racket/list)
-         (only-in "helpers.rkt" c-name-chunks identifier->string string->identifier)
+(require (for-syntax racket/base)
          
          racket/runtime-path
          
          ffi/unsafe
-         ffi/unsafe/define)
+         ffi/unsafe/define
+         
+         "ffi-utils.rkt")
 
 (define-runtime-path chipmunk-binary (build-path "bin" (number->string (system-type 'word)) "libchipmunk"))
 (define chipmunk (ffi-lib chipmunk-binary))
-(define-ffi-definer define-chipmunk chipmunk #:provide provide-protected)
-
-(define-syntax define/provide
-  (syntax-rules ()
-    [(_ (name args ...) exp ...)
-     (define/provide name (lambda (args ...) exp ...))]
-    [(_ name val)
-     (begin (define name val)
-            (provide name))]))
-
-(begin-for-syntax
-  
-  (define (options-search-value options keyword)
-    (options-select-row options keyword #:default #f))
-  
-  (define (cstruct-id->initializer-id cstruct-id)
-    (format-id cstruct-id "init-~a" cstruct-id))
-  
-  (define (cstruct-id->constrcutor-id cstruct-id)
-    (format-id #'name "make-~a" cstruct-id))
-  
-  (define (cstruct-id->immobile-constructor-id cstruct-id)
-    (format-id #'name "new-~a" cstruct-id))
-  
-  (define (get-field-id field-stx)
-    (first (syntax-e field-stx)))
-  
-  (define (get-field-type field-stx)
-    (second (syntax-e field-stx)))
-  
-  (define (get-field-options field-stx)
-    (datum->syntax field-stx (rest (rest (syntax-e field-stx))))))
-
-(define-syntax (defchipmunk stx)
-  (syntax-case stx ()
-    [(_ name #:ptr type)
-     #`(define-chipmunk name _pointer
-         #:c-id #,(format-id #'name "_~a" #'name)
-         #:wrap (lambda (ffi)
-                  (function-ptr ffi type)))]
-    [(_ name #:init init-expr type)
-     #`(define-chipmunk name type
-         #:wrap (lambda (ffi)
-                  (let ((init-proc init-expr))
-                    (lambda args
-                      (let ((instance (apply ffi args)))
-                        (init-proc instance)
-                        instance)))))]
-    [(_ name #:constructor type)
-     #`(defchipmunk name
-         #:init #,(let ((chunks (c-name-chunks #'name)))
-                    (cstruct-id->initializer-id
-                     (string->identifier
-                      #'name
-                      (string-append (first chunks)
-                                     (second chunks)))))
-         type)]
-    [(_ name type)
-     #'(define-chipmunk name type)]))
-
-(define the-empty-immobile-cell (malloc-immobile-cell (void)))
-
-(define-syntax (define-cstruct* stx)
-  
-  (define cstruct-keywords-list
-    (list
-     (list '#:public)))
-  
-  (define field-keywords-list
-    (list
-     (list '#:immobile)
-     (list '#:public)))
-  
-  (define (parse-cstruct-keyword-options option-stx)
-    (parse-keyword-options
-     option-stx
-     cstruct-keywords-list
-     #:no-duplicates? #t))
-  
-  (define (parse-field-keyword-options option-stx)
-    (parse-keyword-options/eol
-     option-stx
-     field-keywords-list
-     #:no-duplicates? #t))
-  
-  (syntax-case stx ()
-    [(_ name fields options ...)
-     (let ((cname (string->identifier #'name (substring (identifier->string #'name) 1))))
-       
-       (define (field-id->immobile-getter-id field-id)
-         (format-id #'name "~a-immobile-~a" cname field-id))
-       
-       (define (field-id->immobile-setter-id field-id)
-         (format-id #'name "set-~a-immobile-~a!" cname field-id))
-       
-       (define (field-id->getter-id field-id)
-         (format-id #'name "~a-~a" cname field-id))
-       
-       (define (field-id->setter-id field-id)
-         (format-id #'name "set-~a-~a!" cname field-id))
-       
-       (let
-           ((cstruct-initializer
-             (cstruct-id->initializer-id cname))
-            (cstruct-constructor
-             (cstruct-id->constrcutor-id cname))
-            (cstruct-immobile-constructor
-             (cstruct-id->immobile-constructor-id cname)))
-         
-         (let-values ([(cstruct-options cstruct-properties)
-                       (parse-cstruct-keyword-options #'(options ...))])
-         
-         (let ((cstruct-public-option (options-search-value cstruct-options '#:public)))
-           
-           (define (normalize-field field-stx)
-             (syntax-case field-stx ()
-               [(field-id field-type options ...)
-                (and (identifier? #'field-id)
-                     (identifier? #'field-type))
-                #'(field-id field-type)]))
-           
-           (define (compile-field-options field-stx field-options)
-             (let ((field-id (get-field-id field-stx)))
-               (let
-                   ((field-getter
-                     (field-id->getter-id field-id))
-                    (field-setter
-                     (field-id->setter-id field-id))
-                    (field-immobile-option
-                     (options-search-value field-options '#:immobile))
-                    (field-public-option
-                     (options-search-value field-options '#:public)))
-                 
-                 (cond
-                   (field-immobile-option
-                    (let
-                        ((field-immobile-getter
-                          (field-id->immobile-getter-id field-id))
-                         (field-immobile-setter
-                          (field-id->immobile-setter-id field-id)))
-                      #`(begin
-                          (define (#,field-immobile-getter a-cstruct)
-                            (ptr-ref (#,field-getter a-cstruct) _racket))
-                          (define (#,field-immobile-setter a-cstruct val)
-                            (free-immobile-cell (#,field-getter a-cstruct))
-                            (#,field-setter a-cstruct (malloc-immobile-cell val)))
-                          #,(when (or cstruct-public-option field-public-option)
-                              #`(provide (rename-out
-                                          [#,field-immobile-getter
-                                           #,field-getter]
-                                          [#,field-immobile-setter
-                                           #,field-setter]))))))
-                   ((or cstruct-public-option field-public-option)
-                    #`(provide #,field-getter #,field-setter))))))
-           
-           (define (compile-field-initializer field-stx field-options)
-             (let ((immobile-option (options-search-value field-options '#:immobile)))
-               (and immobile-option
-                    #`(#,(field-id->setter-id (get-field-id field-stx))
-                       instance
-                       the-empty-immobile-cell))))
-           
-           (let*
-               ((fields (syntax-e #'fields))
-                (fields-options
-                 (map parse-field-keyword-options (map get-field-options fields))))
-             
-             #`(begin
-                 
-                 (define-cstruct name
-                   #,(map normalize-field fields)
-                   #,@cstruct-properties)
-                 
-                 #,@(map compile-field-options
-                         fields fields-options)
-                 
-                 #,(when cstruct-public-option
-                     #`(provide #,(format-id cname "~a?" cname)))
-                 
-                 (define (#,cstruct-initializer instance)
-                   #,@(filter-map compile-field-initializer
-                                  fields fields-options)
-                   instance)
-                 
-                 (define (#,cstruct-immobile-constructor . args)
-                   (#,cstruct-initializer (apply #,cstruct-constructor args)))
-                 
-                 ))))))]))
+(define-ffi-definer* defchipmunk chipmunk #:provide provide-protected)
 
 (define (sint32->uint32 v)
   (bitwise-and #xFFFFFFFF v))
 
 ; ***********************************************
-; * Start of Chipmunk type definitions
+; * Start of Chipmunk type def#Lions
 ; ***********************************************
 
 (define _cpFloat _double)
 (define cpFloat? real?)
-(define _cpDataPointer _racket)
+(define _cpDataPointer _pointer)
 (define _cpKeyPointer _pointer)
 (define _size_t _ulong)
 (define _cpHashValue _size_t)
@@ -243,8 +55,7 @@
 
 (define-cstruct* _cpVect
   ([x _cpFloat]
-   [y _cpFloat])
-  #:public)
+   [y _cpFloat]))
 
 (define _cpBodyVelocityFunc (_fun _pointer _cpVect _cpFloat _cpFloat -> _void))
 (define _cpBodyPositionFunc (_fun _pointer _cpFloat -> _void))
@@ -263,10 +74,9 @@
    [w _cpFloat]
    [t _cpFloat]
    [rot _cpVect]
-   [data _pointer #:immobile]
+   [data _pointer]
    [v_bias _cpVect]
-   [w_bias _cpFloat])
-  #:public)
+   [w_bias _cpFloat]))
 
 (define-cstruct* _cpSpace
   ([iterations _int]
@@ -278,9 +88,8 @@
    [collisionBias _cpFloat]
    [collisionPersistence _cpFloat]
    [enableContactGraph _cpBool]
-   [data _pointer #:immobile]
-   [staticBody _cpBody-pointer])
-  #:public)
+   [data _pointer]
+   [staticBody _cpBody-pointer]))
 
 (define-cstruct _cpArbiter
   ([e _cpFloat]
@@ -300,11 +109,10 @@
    [e _cpFloat]
    [u _cpFloat]
    [surface_v _cpVect]
-   [data _pointer #:immobile]
+   [data _pointer]
    [collision_type _cpCollisionType]
    [group _cpGroup]
-   [layers _cpLayers])
-  #:public)
+   [layers _cpLayers]))
 
 (define _cpConstraintPreSolveFunc (_fun _cpSpace-pointer -> _void))
 (define _cpConstraintPostSolveFunc (_fun _cpSpace-pointer -> _void))
@@ -317,9 +125,12 @@
    [minForce _cpFloat]
    [preSolve _cpConstraintPreSolveFunc]
    [postSolve _cpConstraintPostSolveFunc]
-   [data _pointer
-         #:immobile
-         #:public]))  
+   [data _pointer]))
+
+(define-cstruct* _cpSegmentQueryInfo
+  ([shape _cpShape]
+   [t _cpFloat]
+   [n _cpVect]))
 
 ; ********
 ; Funtion types start
@@ -454,7 +265,7 @@
 (defchipmunk cpSpaceNearestPointQuery (_fun _cpSpace-pointer _cpVect _cpFloat _cpLayers _cpGroup _cpSpaceNearestPointQueryFunc _cpDataPointer -> _void))
 (defchipmunk cpSpaceNearestPointQueryNearest (_fun _cpSpace-pointer _cpVect _cpFloat _cpLayers _cpGroup _cpSpaceNearestPointQueryFunc _cpDataPointer -> _void))
 (defchipmunk cpSpaceSegmentQuery (_fun _cpSpace-pointer _cpVect _cpVect _cpLayers _cpGroup _cpGroup _cpSpaceSegmentQueryFunc -> _void))
-;(defchipmunk cpSpaceSegmentQueryFirst (_fun _cpSpace-pointer _cpVect _cpVect _cpLayers _cpGroup _cpSegmenQueryInfo -> _cpShape-pointer))
+(defchipmunk cpSpaceSegmentQueryFirst (_fun _cpSpace-pointer _cpVect _cpVect _cpLayers _cpGroup _cpSegmentQueryInfo -> _cpShape-pointer))
 (defchipmunk cpSpaceBBQuery (_fun _cpSpace-pointer _cpBB-pointer _cpLayers _cpGroup _cpSpaceBBQueryFunc _cpDataPointer -> _void))
 ;(defchipmunk cpSpaceShapeQuery (_fun _cpSpace-pointer _cpShape-pointer _cpSpaceShapeQueryFunc _cpDataPointer -> _cpBool))
 (defchipmunk cpSpaceActivateShapesTouchingShape (_fun _cpSpace-pointer _cpShape-pointer -> _void))
@@ -497,7 +308,7 @@
 
 (defchipmunk cpBodyAlloc (_fun -> _cpBody-pointer))
 (defchipmunk cpBodyInit (_fun _cpBody-pointer _cpFloat _cpFloat -> _cpBody-pointer))
-(defchipmunk cpBodyNew #:constructor (_fun _cpFloat _cpFloat -> _cpBody-pointer))
+(defchipmunk cpBodyNew (_fun _cpFloat _cpFloat -> _cpBody-pointer))
 (defchipmunk cpBodyInitStatic (_fun _cpBody-pointer -> _cpBody-pointer))
 (defchipmunk cpBodyNewStatic (_fun -> _cpBody-pointer))
 (defchipmunk cpBodyDestroy (_fun _cpBody-pointer -> _cpBody-pointer))
@@ -561,12 +372,8 @@
 (defchipmunk cpShapeUpdate (_fun _cpShape-pointer _cpVect _cpVect -> _cpBB))
 (defchipmunk cpShapePointQuery (_fun _cpShape-pointer _cpVect -> _cpBool))
 
-(defchipmunk cpSegmentShapeNew
-  #:init init-cpShape
-  (_fun _cpBody-pointer _cpVect _cpVect _cpFloat -> _cpShape-pointer))
-(defchipmunk cpCircleShapeNew
-  #:init init-cpShape
-  (_fun _cpBody-pointer _cpFloat _cpVect -> _cpShape-pointer))
+(defchipmunk cpSegmentShapeNew (_fun _cpBody-pointer _cpVect _cpVect _cpFloat -> _cpShape-pointer))
+(defchipmunk cpCircleShapeNew (_fun _cpBody-pointer _cpFloat _cpVect -> _cpShape-pointer))
 
 ; ********
 ; Getters and Setters Start
@@ -592,9 +399,6 @@
 (defchipmunk cpShapeGetLayers #:ptr (_fun _cpShape-pointer -> _cpLayers))
 (defchipmunk cpShapeSetLayers #:ptr (_fun _cpShape-pointer _cpLayers -> _void))
 
-(define/provide cpShapeGetData cpShape-immobile-data)
-(define/provide cpShapeSetData set-cpShape-immobile-data!)
-
 ; ********
 ; Getters and Setters End
 ; ********
@@ -612,7 +416,7 @@
 ;(define (cpv x y)
 ;(make-cpVect x y))
 (defchipmunk cpv #:ptr (_fun _cpFloat _cpFloat -> _cpVect))
-(define/provide (cpvzero) (cpv 0.0 0.0))
+(define/provide cpvzero (cpv 0.0 0.0))
 (defchipmunk cpvslerp (_fun _cpVect _cpVect _cpFloat -> _cpVect))
 (defchipmunk cpvslerpconst (_fun _cpVect _cpVect _cpFloat -> _cpVect))
 (defchipmunk cpvstr (_fun _cpVect -> _string))

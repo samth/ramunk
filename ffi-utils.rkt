@@ -19,8 +19,7 @@
                       c-name-chunks
                       c-lower-name-chunks
                       
-                      c-id->racket-id
-                      c-id->racket-method-id)
+                      c-id->racket-id)
           
           define/provide
           define-cstruct*
@@ -66,7 +65,7 @@
          strs))
   
   (define (c-name-chunks id)
-    (regexp-split #rx"(?<!^)(?=[A-Z])" 
+    (regexp-split #rx"(?<!^)(?=[A-Z])(?![A-Z][A-Z][a-z])"
                   (identifier->string id)))
   
   (define (c-lower-name-chunks id)
@@ -92,162 +91,21 @@
         (proc id)))))
   
   (define c-id->racket-id
-    (make-id-transformer c-name->racket-name))
-  
-  (define c-id->racket-method-id
-    (make-id-transformer c-name->racket-method-name))
-  (define (cstruct-id->initializer-id cstruct-id)
-    (format-id cstruct-id "init-~a" cstruct-id))
-  
-  (define (cstruct-id->constrcutor-id cstruct-id)
-    (format-id cstruct-id "make-~a" cstruct-id))
-  
-  (define (cstruct-id->immobile-constructor-id cstruct-id)
-    (format-id cstruct-id "new-~a" cstruct-id))
-  
-  (define (cproc-id->cstruct-id cproc-id)
-    (let ((chunks (c-name-chunks cproc-id)))
-      (string->identifier
-       cproc-id
-       (string-append (first chunks)
-                      (second chunks))))))
-
-(define the-empty-immobile-cell (malloc-immobile-cell (void)))
+    (make-id-transformer c-name->racket-name)))
 
 (define-syntax (define-cstruct* stx)
-  
-  (define (get-field-id field-stx)
-    (first (syntax-e field-stx)))
-  
-  (define (get-field-type field-stx)
-    (second (syntax-e field-stx)))
-  
-  (define (get-field-options field-stx)
-    (datum->syntax field-stx (rest (rest (syntax-e field-stx)))))
-  
-  (define cstruct-keywords-list
-    (list
-     (list '#:public)))
-  
-  (define field-keywords-list
-    (list
-     (list '#:immobile)
-     (list '#:public)))
-  
-  (define (parse-cstruct-keyword-options option-stx)
-    (parse-keyword-options
-     option-stx
-     cstruct-keywords-list
-     #:no-duplicates? #t))
-  
-  (define (parse-field-keyword-options option-stx)
-    (parse-keyword-options/eol
-     option-stx
-     field-keywords-list
-     #:no-duplicates? #t))
-  
   (syntax-case stx ()
     [(_ name fields options ...)
      (let ((cname (string->identifier #'name (substring (identifier->string #'name) 1))))
-       
-       (define (field-id->immobile-getter-id field-id)
-         (format-id #'name "~a-immobile-~a" cname field-id))
-       
-       (define (field-id->immobile-setter-id field-id)
-         (format-id #'name "set-~a-immobile-~a!" cname field-id))
-       
-       (define (field-id->getter-id field-id)
-         (format-id #'name "~a-~a" cname field-id))
-       
-       (define (field-id->setter-id field-id)
-         (format-id #'name "set-~a-~a!" cname field-id))
-       
-       (let
-           ((cstruct-initializer
-             (cstruct-id->initializer-id cname))
-            (cstruct-constructor
-             (cstruct-id->constrcutor-id cname))
-            (cstruct-immobile-constructor
-             (cstruct-id->immobile-constructor-id cname)))
-         
-         (let-values ([(cstruct-options cstruct-properties)
-                       (parse-cstruct-keyword-options #'(options ...))])
-           
-           (let ((cstruct-public-option (options-search-row cstruct-options '#:public)))
-             
-             (define (normalize-field field-stx)
-               (syntax-case field-stx ()
-                 [(field-id field-type options ...)
-                  (and (identifier? #'field-id)
-                       (identifier? #'field-type))
-                  #'(field-id field-type)]))
-             
-             (define (compile-field-options field-stx field-options)
-               (let ((field-id (get-field-id field-stx)))
-                 (let
-                     ((field-getter
-                       (field-id->getter-id field-id))
-                      (field-setter
-                       (field-id->setter-id field-id))
-                      (field-immobile-option
-                       (options-search-row field-options '#:immobile))
-                      (field-public-option
-                       (options-search-row field-options '#:public)))
-                   
-                   (cond
-                     (field-immobile-option
-                      (let
-                          ((field-immobile-getter
-                            (field-id->immobile-getter-id field-id))
-                           (field-immobile-setter
-                            (field-id->immobile-setter-id field-id)))
-                        #`(begin
-                            (define (#,field-immobile-getter a-cstruct)
-                              (ptr-ref (#,field-getter a-cstruct) _racket))
-                            (define (#,field-immobile-setter a-cstruct val)
-                              (free-immobile-cell (#,field-getter a-cstruct))
-                              (#,field-setter a-cstruct (malloc-immobile-cell val)))
-                            #,(when (or cstruct-public-option field-public-option)
-                                #`(provide #,field-immobile-getter
-                                           #,field-getter
-                                           #,field-immobile-setter
-                                           #,field-setter)))))
-                     ((or cstruct-public-option field-public-option)
-                      #`(provide #,field-getter #,field-setter))))))
-             
-             (define (compile-field-initializer field-stx field-options)
-               (let ((immobile-option (options-search-row field-options '#:immobile)))
-                 (and immobile-option
-                      #`(#,(field-id->setter-id (get-field-id field-stx))
-                         instance
-                         the-empty-immobile-cell))))
-             
-             (let*
-                 ((fields (syntax-e #'fields))
-                  (fields-options
-                   (map parse-field-keyword-options (map get-field-options fields))))
-               
-               #`(begin
-                   
-                   (define-cstruct name
-                     #,(map normalize-field fields)
-                     #,@cstruct-properties)
-                   
-                   #,@(map compile-field-options
-                           fields fields-options)
-                   
-                   #,(when cstruct-public-option
-                       #`(provide #,(format-id cname "~a?" cname)))
-                   
-                   (define (#,cstruct-initializer instance)
-                     #,@(filter-map compile-field-initializer
-                                    fields fields-options)
-                     instance)
-                   
-                   ;(define (#,cstruct-immobile-constructor . args)
-                   ;  (#,cstruct-initializer (apply #,cstruct-constructor args)))
-                   
-                   ))))))]))
+       #`(begin
+           (define-cstruct name fields options ...)
+           #,@(map (lambda (field-stx)
+                     (let ((field-id (first (syntax-e field-stx))))
+                       #`(provide #,(format-id #'name "~a-~a" cname field-id)
+                                  #,(format-id #'name "set-~a-~a!" cname field-id))))
+                     (syntax-e #'fields))
+           (provide #,(format-id cname "~a?" cname)
+                    #,(format-id cname "make-~a" cname))))]))
 
 (define (make-pointer-wrapper type)
   (lambda (ffi)
