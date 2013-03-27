@@ -27,16 +27,13 @@
 
 ;; Vector operations
 
-(define (vector->cpv v)
+(define/provide (vector->cpv v)
   (cpv (vector-ref v 0)
        (vector-ref v 1)))
 
-(define (cpv->vector v)
+(define/provide (cpv->vector v)
   (vector (cpVect-x v)
           (cpVect-y v)))
-
-(provide vector->cpv
-         cpv->vector)
 
 (provide/ffi cpVect-x
              cpVect-y
@@ -86,15 +83,40 @@
   (free-immobile-cell (cpBody-data cpBody))
   (set-cp-body-data! cpBody val))
 
-(define/provide (cp-body-new mass intertia)
-  (with (cpBody (cpBodyNew mass intertia))
-    (set-cpBody-data! cpBody the-empty-immobile-cell)))
+(define (lift-body-constructor constructor)
+  (lambda args
+    (with (body (apply constructor args))
+      (set-cpBody-data! body the-empty-immobile-cell))))
 
-(define/provide (cp-body-new-static)
-  (with (cpBody (cpBodyNewStatic))
-    (set-cpBody-data! cpBody the-empty-immobile-cell)))
+(define/provide cp-body-alloc (lift-body-constructor cpBodyAlloc))
+(define/provide cp-body-new (lift-body-constructor cpBodyNew))
+(define/provide cp-body-new-static (lift-body-constructor cpBodyNewStatic))
 
-(provide/ffi cpBodyAlloc
+(provide/ffi cpBodyGetMass
+             cpBodyGetMoment
+             cpBodyGetPos
+             cpBodyGetVel
+             cpBodyGetForce
+             cpBodyGetAngle
+             cpBodyGetAngVel
+             cpBodyGetTorque
+             cpBodyGetVelLimit
+             cpBodyGetAngVelLimit
+             cpBodyGetSpace
+             cpBodyGetUserData
+             
+             cpBodySetMass
+             cpBodySetMoment
+             cpBodySetPos
+             cpBodySetVel
+             cpBodySetForce
+             cpBodySetAngle
+             cpBodySetAngVel
+             cpBodySetTorque
+             cpBodySetVelLimit
+             cpBodySetAngVelLimit
+             cpBodySetUserData
+             
              cpBodyInit
              cpBodyInitStatic
              cpBodyDestroy
@@ -108,6 +130,8 @@
              cpBodyIsStatic
              cpBodyIsRogue
              cpBodyUpdateVelocity
+             cpBodyLocal2World
+             cpBodyWorld2Local
              cpBodyResetForces
              cpBodyApplyForce
              cpBodyApplyImpulse
@@ -117,20 +141,6 @@
              cpBodyEachShape
              cpBodyEachConstraint
              cpBodyEachArbiter
-             
-             cpBodyGetMass 
-             cpBodyGetMoment 
-             cpBodyGetPos 
-             cpBodyGetAngle
-             cpBodyGetVel 
-             cpBodyGetAngVel 
-             
-             cpBodySetMass 
-             cpBodySetMoment
-             cpBodySetPos 
-             cpBodySetAngle 
-             cpBodySetVel 
-             cpBodySetAngVel 
              )
 
 ;; Shape operations
@@ -149,40 +159,66 @@
     (with (shape (apply constructor args))
       (set-cpShape-data! shape the-empty-immobile-cell))))
 
+(define/provide cp-circle-shapee-alloc (lift-shape-constructor cpCircleShapeAlloc))
+(define/provide cp-segment-shape-alloc (lift-shape-constructor cpSegmentShapeAlloc))
+(define/provide cp-poly-shape-alloc (lift-shape-constructor cpPolyShapeAlloc))
+
 (define/provide cp-circle-shape-new (lift-shape-constructor cpCircleShapeNew))
 (define/provide cp-segment-shape-new (lift-shape-constructor cpSegmentShapeNew))
 (define/provide cp-poly-shape-new (lift-shape-constructor cpPolyShapeNew))
+(define/provide cp-box-shape-new (lift-shape-constructor cpBoxShapeNew))
+(define/provide cp-box-shape-new2 (lift-shape-constructor cpBoxShapeNew2))
 
-(provide/ffi cpShapeDestroy
+(provide/ffi cpShapeGetBody
+             cpShapeGetBB
+             cpShapeGetSensor
+             cpShapeGetElasticity
+             cpShapeGetFriction
+             cpShapeGetSurfaceVelocity
+             cpShapeGetCollisionType
+             cpShapeGetGroup
+             cpShapeGetLayers
+             cpShapeGetSpace
+             cpShapeGetUserData
+             
+             cpShapeSetBody
+             cpShapeSetSensor
+             cpShapeSetElasticity
+             cpShapeSetFriction
+             cpShapeSetSurfaceVelocity
+             cpShapeSetCollisionType
+             cpShapeSetGroup
+             cpShapeSetLayers
+             cpShapeSetUserData
+             
+             cpShapeDestroy
              cpShapeFree
              cpShapeCacheBB
              cpShapeUpdate
              cpShapePointQuery
              cpShapeNearestPointQuery
              cpShapeSegmentQuery
-             ;cpSegmentQueryHitPoint
-             ;cpSegmentQueryHitDist
+             cpSegmentQueryHitPoint
+             cpSegmentQueryHitDist
              cpResetShapeIdCounter
-
-             cpShapeGetBody
-             cpShapeSetBody
-             cpShapeGetBB 
              
-             cpShapeGetSensor 
-             cpShapeGetElasticity 
-             cpShapeGetFriction 
-             cpShapeGetSurfaceVelocity 
-             cpShapeGetCollisionType
-             cpShapeGetGroup 
-             cpShapeGetLayers
+             cpCircleShapeInit
+             cpCircleShapeGetOffset
+             cpCircleShapeGetRadius
              
-             cpShapeSetSensor 
-             cpShapeSetElasticity
-             cpShapeSetSurfaceVelocity 
-             cpShapeSetUserData 
-             cpShapeSetCollisionType 
-             cpShapeSetGroup
-             cpShapeSetLayers
+             cpSegmentShapeInit
+             cpSegmentShapeGetA
+             cpSegmentShapeGetB
+             cpSegmentShapeGetNormal
+             cpSegmentShapeGetRadius
+             
+             cpPolyShapeInit
+             cpPolyValidate
+             cpPolyShapeGetNumVerts
+             cpPolyShapeGetVert
+             
+             cpBoxShapeInit
+             cpBoxShapeInit2
              )
 
 ;; Space operations
@@ -196,64 +232,71 @@
   (free-immobile-cell (cpSpace-data cpSpace))
   (set-cp-space-data! cpSpace val))
 
-(define/provide (cp-space-new)
-  (with (cpSpace (cpSpaceNew))
-    (set-cpSpace-data! cpSpace the-empty-immobile-cell)))
+(define (lift-space-constructor constructor)
+  (lambda args
+    (with (space (apply constructor args))
+      (set-cpSpace-data! space the-empty-immobile-cell))))
+  
+(define/provide cp-space-new (lift-space-constructor cpSpaceNew))
+(define/provide cp-space-alloc (lift-space-constructor cpSpaceAlloc))
 
-(provide/ffi cpSpaceDestroy 
-             cpSpaceFree
-             cpSpaceAddShape 
-             cpSpaceAddStaticShape
-             cpSpaceAddBody
-             cpSpaceAddConstraint
-             cpSpaceAddPostStepCallback
-             cpSpaceRemoveShape
-             cpSpaceRemoveStaticShape 
-             cpSpaceRemoveBody 
-             cpSpaceRemoveConstraint
-             cpSpaceGetIterations 
-             cpSpaceSetIterations 
-             cpSpaceGetGravity 
-             cpSpaceSetGravity
+(provide/ffi cpSpaceGetIterations
+             cpSpaceGetGravity
              cpSpaceGetDamping
+             cpSpaceGetIdleSpeedThreshold
+             cpSpaceGetSleepTimeThreshold
+             cpSpaceGetCollisionSlop
+             cpSpaceGetCollisionBias
+             cpSpaceGetCollisionPersistence
+             cpSpaceGetEnableContactGraph
+             cpSpaceGetCurrentTimeStep
+             cpSpaceGetUserData
+             cpSpaceGetStaticBody
+             
+             cpSpaceSetIterations
+             cpSpaceSetGravity
              cpSpaceSetDamping
-             cpSpaceGetIdleSpeedThreshold 
-             cpSpaceSetIdleSpeedThreshold 
-             cpSpaceGetSleepTimeThreshold 
+             cpSpaceSetIdleSpeedThreshold
              cpSpaceSetSleepTimeThreshold
-             cpSpaceGetCollisionSlop 
              cpSpaceSetCollisionSlop
-             cpSpaceGetCollisionBias 
-             cpSpaceSetCollisionBias 
-             cpSpaceGetCollisionPersistence 
-             cpSpaceSetCollisionPersistence 
-             cpSpaceGetEnableContactGraph 
-             cpSpaceSetEnableContactGraph 
-             cpSpaceGetUserData 
-             cpSpaceSetUserData 
-             cpSpaceGetStaticBody 
-             cpSpaceGetCurrentTimeStep 
+             cpSpaceSetCollisionBias
+             cpSpaceSetCollisionPersistence
+             cpSpaceSetEnableContactGraph
+             cpSpaceSetUserData
+             
+             cpSpaceInit
+             cpSpaceDestroy
+             cpSpaceFree
+             cpSpaceIsLocked
              cpSpaceSetDefaultCollisionHandler
              cpSpaceAddCollisionHandler
              cpSpaceRemoveCollisionHandler
-             cpSpaceIsLocked
+             cpSpaceAddShape
+             cpSpaceAddStaticShape
+             cpSpaceAddBody
+             cpSpaceAddConstraint
+             cpSpaceRemoveShape
+             cpSpaceRemoveStaticShape
+             cpSpaceRemoveBody
+             cpSpaceRemoveConstraint
              cpSpaceContainsShape
              cpSpaceContainsBody
              cpSpaceContainsConstraint
-             cpSpacePointQuery 
-             cpSpacePointQueryFirst 
-             cpSpaceNearestPointQuery 
+             cpSpaceAddPostStepCallback
+             cpSpacePointQuery
+             cpSpacePointQueryFirst
+             cpSpaceNearestPointQuery
              cpSpaceNearestPointQueryNearest
-             cpSpaceSegmentQuery 
+             cpSpaceSegmentQuery
              cpSpaceSegmentQueryFirst
              cpSpaceBBQuery
-             ;cpSpaceShapeQuery
+             cpSpaceShapeQuery
              cpSpaceActivateShapesTouchingShape
              cpSpaceEachBody
-             cpSpaceEachShape 
-             cpSpaceEachConstraint 
+             cpSpaceEachShape
+             cpSpaceEachConstraint
              cpSpaceReindexStatic
-             cpSpaceReindexShape 
+             cpSpaceReindexShape
              cpSpaceReindexShapesForBody
              cpSpaceUseSpatialHash
              cpSpaceStep
@@ -261,15 +304,15 @@
 
 ;; Miscellaneous operations
 
-(provide/ffi ;cpEnableSegmentToSegmentCollisions
+(provide/ffi cpEnableSegmentToSegmentCollisions
              cpMomentForCircle
-             ;cpAreaForCircle
+             cpAreaForCircle
              cpMomentForSegment
-             ;cpAreaForSegment 
+             cpAreaForSegment 
              cpMomentForPoly 
              cpAreaForPoly 
              cpCentroidForPoly 
-             ;cpRecenterPoly #:ptr (_fun _int _cpVect -> _void))
+             cpRecenterPoly
              cpMomentForBox
              cpMomentForBox2
              cpConvexHull
