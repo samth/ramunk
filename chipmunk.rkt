@@ -21,6 +21,10 @@
 (define (immobile-cell-contents cell)
   (ptr-ref cell _racket))
 
+(define (immobilize-mutator mutator-proc)
+  (lambda (cstruct val)
+    (mutator-proc cstruct (malloc-immobile-cell val))))
+
 ;; Vector operations
 
 (define (vector->cpv v)
@@ -34,7 +38,9 @@
 (provide vector->cpv
          cpv->vector)
 
-(provide/ffi cpv
+(provide/ffi cpVect-x
+             cpVect-y
+             cpv
              cpvzero 
              cpvslerp
              cpvslerpconst
@@ -67,26 +73,30 @@
 
 ;; Body operations
 
-(provide cpBody-data
-         (rename-out
+(provide (rename-out
           [cpBodyLocal2World cp-body-local-to-world]
           [cpBodyWorld2Local cp-body-world-to-local]))
+
+(define/provide set-cp-body-data! (immobilize-mutator set-cpBody-data!))
 
 (define/provide (cp-body-get-data cpBody)
   (immobile-cell-contents (cpBody-data cpBody)))
 
 (define/provide (cp-body-set-data cpBody val)
   (free-immobile-cell (cpBody-data cpBody))
-  (set-cpBody-data! cpBody (malloc-immobile-cell val)))
+  (set-cp-body-data! cpBody val))
 
 (define/provide (cp-body-new mass intertia)
   (with (cpBody (cpBodyNew mass intertia))
     (set-cpBody-data! cpBody the-empty-immobile-cell)))
 
+(define/provide (cp-body-new-static)
+  (with (cpBody (cpBodyNewStatic))
+    (set-cpBody-data! cpBody the-empty-immobile-cell)))
+
 (provide/ffi cpBodyAlloc
              cpBodyInit
              cpBodyInitStatic
-             cpBodyNewStatic
              cpBodyDestroy
              cpBodyFree
              cpBodySanityCheck
@@ -123,14 +133,68 @@
              cpBodySetAngVel 
              )
 
+;; Shape operations
+
+(define/provide set-cp-shape-data! (immobilize-mutator set-cpShape-data!))
+
+(define/provide (cp-shape-get-data shape val)
+  (immobile-cell-contents (cpShape-data shape)))
+
+(define/provide (cp-shape-set-data shape val)
+  (free-immobile-cell (cpShape-data shape))
+  (set-cp-shape-data! shape val))
+
+(define (lift-shape-constructor constructor)
+  (lambda args
+    (with (shape (apply constructor args))
+      (set-cpShape-data! shape the-empty-immobile-cell))))
+
+(define/provide cp-circle-shape-new (lift-shape-constructor cpCircleShapeNew))
+(define/provide cp-segment-shape-new (lift-shape-constructor cpSegmentShapeNew))
+(define/provide cp-poly-shape-new (lift-shape-constructor cpPolyShapeNew))
+
+(provide/ffi cpShapeDestroy
+             cpShapeFree
+             cpShapeCacheBB
+             cpShapeUpdate
+             cpShapePointQuery
+             cpShapeNearestPointQuery
+             cpShapeSegmentQuery
+             ;cpSegmentQueryHitPoint
+             ;cpSegmentQueryHitDist
+             cpResetShapeIdCounter
+
+             cpShapeGetBody
+             cpShapeSetBody
+             cpShapeGetBB 
+             
+             cpShapeGetSensor 
+             cpShapeGetElasticity 
+             cpShapeGetFriction 
+             cpShapeGetSurfaceVelocity 
+             cpShapeGetCollisionType
+             cpShapeGetGroup 
+             cpShapeGetLayers
+             
+             cpShapeSetSensor 
+             cpShapeSetElasticity
+             cpShapeSetSurfaceVelocity 
+             cpShapeSetUserData 
+             cpShapeSetCollisionType 
+             cpShapeSetGroup
+             cpShapeSetLayers
+             )
+
 ;; Space operations
+
+(define/provide set-cp-space-data! (immobilize-mutator set-cpSpace-data!))
 
 (define/provide (cp-space-get-data cpSpace)
   (immobile-cell-contents (cpSpace-data cpSpace)))
 
 (define/provide (cp-space-set-data cpSpace val)
   (free-immobile-cell (cpSpace-data cpSpace))
-  (set-cpSpace-data! cpSpace (malloc-immobile-cell val)))
+  (set-cp-space-data! cpSpace val))
 
 (define/provide (cp-space-new)
   (with (cpSpace (cpSpaceNew))
@@ -195,3 +259,18 @@
              cpSpaceStep
              )
 
+;; Miscellaneous operations
+
+(provide/ffi ;cpEnableSegmentToSegmentCollisions
+             cpMomentForCircle
+             ;cpAreaForCircle
+             cpMomentForSegment
+             ;cpAreaForSegment 
+             cpMomentForPoly 
+             cpAreaForPoly 
+             cpCentroidForPoly 
+             ;cpRecenterPoly #:ptr (_fun _int _cpVect -> _void))
+             cpMomentForBox
+             cpMomentForBox2
+             cpConvexHull
+             )
