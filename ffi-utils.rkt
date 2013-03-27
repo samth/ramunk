@@ -105,6 +105,7 @@
                                   #,(format-id #'name "set-~a-~a!" cname field-id))))
                      (syntax-e #'fields))
            (provide #,(format-id cname "~a?" cname)
+                    #,(format-id cname "_~a" cname)
                     #,(format-id cname "make-~a" cname))))]))
 
 (define (make-pointer-wrapper type)
