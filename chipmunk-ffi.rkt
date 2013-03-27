@@ -18,7 +18,6 @@
 ; **********************************
 
 (define _cpFloat _double)
-(define cpFloat? real?)
 (define _cpDataPointer _pointer)
 (define _cpKeyPointer _pointer)
 (define _size_t _ulong)
@@ -29,6 +28,7 @@
 (define _cpGroup _uint)
 (define _cpLayers _uint)
 
+(define/provide INFINITY 1e+100)
 (define/provide cpTrue 1)
 (define/provide cpFalse 0)
 (define/provide CP_NO_GROUP 0)
