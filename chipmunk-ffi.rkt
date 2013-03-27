@@ -13,9 +13,6 @@
 (define chipmunk (ffi-lib chipmunk-binary))
 (define-ffi-definer* defchipmunk chipmunk #:provide provide-protected)
 
-(define (sint32->uint32 v)
-  (bitwise-and #xFFFFFFFF v))
-
 ; **********************************
 ; * CHIPMUNK TYPE DEFINITIONS
 ; **********************************
@@ -34,11 +31,8 @@
 
 (define/provide cpTrue 1)
 (define/provide cpFalse 0)
-(define/provide GRABABLE_MASK (sint32->uint32 (arithmetic-shift 1 31)))
-(define/provide NOT_GRABABLE_MASK (sint32->uint32 (bitwise-not GRABABLE_MASK)))
 (define/provide CP_NO_GROUP 0)
 (define/provide CP_ALL_LAYERS 0)
-(define/provide cpfexp exp)
 
 ;; STRUCT DEFINITIONS ;;
 
