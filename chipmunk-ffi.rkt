@@ -222,7 +222,7 @@
 (defchipmunk cpvnear #:ptr (_fun _cpVect _cpVect -> _cpFloat))
 (defchipmunk cpvlengthsq #:ptr (_fun _cpVect -> _cpFloat))
 
-(define/provide (cpvzero) (cpv 0.0 0.0))
+(define/provide cpvzero (cpv 0.0 0.0))
 
 ; **********************************
 ; * BOUNDING BOX MODULE DEFINITIONS
