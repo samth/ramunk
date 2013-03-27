@@ -25,6 +25,17 @@
   (lambda (cstruct val)
     (mutator-proc cstruct (malloc-immobile-cell val))))
 
+(define (malloc-array type size . els)
+  (let ((array (malloc type size)))
+    (do ((lst els (cdr lst))
+         (idx 0 (+ idx 1)))
+      ((null? lst) array)
+      (ptr-set! array _cpVect idx (car lst)))))
+
+;; Basic types
+
+(provide/ffi INFINITY)
+
 ;; Vector operations
 
 (define/provide (vector->cpv v)
@@ -165,9 +176,14 @@
 
 (define/provide cp-circle-shape-new (lift-shape-constructor cpCircleShapeNew))
 (define/provide cp-segment-shape-new (lift-shape-constructor cpSegmentShapeNew))
-(define/provide cp-poly-shape-new (lift-shape-constructor cpPolyShapeNew))
 (define/provide cp-box-shape-new (lift-shape-constructor cpBoxShapeNew))
 (define/provide cp-box-shape-new2 (lift-shape-constructor cpBoxShapeNew2))
+
+(define/provide (cp-poly-shape-new body points offset)
+  (let* ((count (length points))
+         (array (apply malloc-array _cpVect count points)))
+    (with (shape (cpPolyShapeNew body count (ptr-ref array _cpVect 0) offset))
+      (set-cpShape-data! shape the-empty-immobile-cell))))
 
 (provide/ffi cpShapeGetBody
              cpShapeGetBB
