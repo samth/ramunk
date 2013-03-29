@@ -1,11 +1,12 @@
 #lang racket
 
-(require "../chipmunk-ffi.rkt"
+(require "../chipmunk.rkt"
+         
          2htdp/image
          2htdp/universe)
 
 (define (cpVectPrint v)
-  (display (format "(~a,~a)" (cpVect-x v) (cpVect-y v)))
+  (display (format "(~a,~a)" (cp-vect-x v) (cp-vect-y v)))
   (newline))
 
 ; Working with intervals
@@ -42,9 +43,9 @@
 ; Defining screen boundaries
 
 (define (wall space start end [elasticity 0.1])
-  (let ((shape (cpSegmentShapeNew (cpSpaceGetStaticBody space) start end 0.0)))
-    (cpShapeSetElasticity shape elasticity)
-    (cpSpaceAddShape space shape)
+  (let ((shape (cp-segment-shape-new (cp-space-get-static-body space) start end 0.0)))
+    (cp-shape-set-elasticity shape elasticity)
+    (cp-space-add-shape space shape)
     shape))
 
 (define (wrap space topleft topright bottomleft bottomright [elasticity 0.1])
@@ -58,9 +59,9 @@
 
 ; Defining the physical space
 
-(define the-space (cpSpaceNew))
+(define the-space (cp-space-new))
 (define the-space-interval (/ 1 space-framerate))
-(cpSpaceSetGravity the-space space-gravity)
+(cp-space-set-gravity the-space space-gravity)
 (box the-space space-width space-height space-elasticity)
 
 ; Definining a particle as a cpShape
@@ -70,12 +71,12 @@
 (define (make-particle position velocity mass diameter)
   (let*
       ((radius (/ diameter 2))
-       (body (cpBodyNew mass (cpMomentForCircle mass 0.0 radius (cpvzero))))
-       (shape (cpCircleShapeNew body radius (cpvzero))))
-    (cpBodySetPos body position)
-    (cpBodySetVel body velocity)
-    (set-cpShape-data! shape (particle radius))
-    (cpShapeSetElasticity shape 1.0)
+       (body (cp-body-new mass (cp-moment-for-circle mass 0.0 radius (cpvzero))))
+       (shape (cp-circle-shape-new body radius (cpvzero))))
+    (cp-body-set-pos body position)
+    (cp-body-set-vel body velocity)
+    (cp-shape-set-data shape (particle radius))
+    (cp-shape-set-elasticity shape 1.0)
     shape))
 
 (define (make-random-particle position velocity)
@@ -94,12 +95,12 @@
                  the-space))))
 
 (define (particle-enable particle space)
-  (cpSpaceAddBody the-space (cpShapeGetBody particle))
-  (cpSpaceAddShape the-space particle))
+  (cp-space-add-body the-space (cp-shape-get-body particle))
+  (cp-space-add-shape the-space particle))
 
 (define (particle-disable particle space)
-  (cpSpaceRemoveBody the-space (cpShapeGetBody particle))
-  (cpSpaceRemoveShape the-space particle))
+  (cp-space-remove-body the-space (cp-shape-get-body particle))
+  (cp-space-remove-shape the-space particle))
 
 
 ; Keeping track of the interactions
@@ -120,10 +121,10 @@
 ; Drawing the environment
 
 (define (draw-particle particle scene)
-  (let* ((position (cpBodyGetPos (cpShapeGetBody particle))))
-    (place-image (circle (particle-radius (cpShape-data particle)) "solid" particle-color)
-                 (cpVect-x position)
-                 (cpVect-y position)
+  (let* ((position (cp-body-get-pos (cp-shape-get-body particle))))
+    (place-image (circle (particle-radius (cp-shape-get-data particle)) "solid" particle-color)
+                 (cp-vect-x position)
+                 (cp-vect-y position)
                  scene)))
 
 ; Mixing everything together
@@ -131,7 +132,7 @@
 (big-bang
  0
  [on-tick (lambda (ticks)
-            (cpSpaceStep the-space (exact->inexact (* the-space-interval 10)))
+            (cp-space-step the-space (exact->inexact (* the-space-interval 10)))
             (+ ticks 1))
           the-space-interval]
  [on-draw (lambda (ticks)
@@ -141,10 +142,10 @@
                           particles)))
               (if mouse-origin
                   (add-line scene
-                            (cpVect-x mouse-origin)
-                            (cpVect-y mouse-origin)
-                            (cpVect-x mouse-target)
-                            (cpVect-y mouse-target)
+                            (cp-vect-x mouse-origin)
+                            (cp-vect-y mouse-origin)
+                            (cp-vect-x mouse-target)
+                            (cp-vect-y mouse-target)
                             "black")
                   scene)))]
  [on-mouse (lambda (y x ticks event)
@@ -153,12 +154,12 @@
                 (set! mouse-target (make-cpv x y)))
                ((button-down)
                 (let ((shape
-                       (or (cpSpacePointQueryFirst the-space (make-cpv x y) CP_ALL_LAYERS CP_NO_GROUP)
+                       (or (cp-space-point-query-first the-space (make-cpv x y) cp-all-layers cp-no-group)
                            (add-particle! (make-random-particle (make-cpv x y) (cpvzero))))))
                   (set! mouse-origin (make-cpv x y))
                   (set! mouse-particle shape)))
                ((button-up)
-                (cpBodySetVel (cpShapeGetBody mouse-particle) (cpvsub (make-cpv x y) mouse-origin))
+                (cp-body-set-vel (cp-shape-get-body mouse-particle) (cpvsub (make-cpv x y) mouse-origin))
                 (particle-enable mouse-particle the-space)
                 (add-particle! mouse-particle)
                 (set! mouse-origin #f)))
