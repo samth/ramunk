@@ -8,8 +8,6 @@
 
 An FFI to the @link["http://chipmunk-physics.net/"]{Chipmunk Game Dynamics} C-library.
 
-Please refer to the @link["http://chipmunk-physics.net/documentation.php"]{official documentation} for a complete overview of all procedures.
-
 @section{Introduction}
 
 The library was originally written by @link["http://planet.plt-scheme.org/display.ss?package=chipmunk.plt&owner=jaymccarthy"]{Jay McCarthy}
@@ -21,20 +19,14 @@ For this reason, some platforms might not be supported. You will need to recompi
 One of the main advantages of this library is its speed. You can try out some of the demos to verify this for yourself.
 For this reason this library is extremely well-suited for game applications and similar programs that require smooth physical interactions.
 
-@section{FFI Bindings}
-
-This section documents all of the procedures that are available to the end-user.
-
-@defmodule["chipmunk-ffi.rkt"]
-
-This module contains all of the bindings to the Chipmunk binaries. There is no need to import additional files.
+@section{Physics Library}
 
 @subsection{Vectors}
 
 @defstruct[cpVect
            ([x cpFloat?]
            [y cpFloat?])
-                        	#:extra-constructor-name cpv]
+           #:extra-constructor-name cpv]
 
 The representation of a two-dimensional vector in Chipmunk.
 
@@ -74,6 +66,17 @@ Shapes that are added to a @racket[cpSpace] will be able to collide with each ot
             [enableContactGraph _cpBool]
             [data _cpDataPointer]
             [staticBody _cpBody-pointer])]
+
+@section{FFI Bindings}
+
+This section documents all of the procedures that are available to the end-user.
+
+@defmodule["chipmunk-ffi.rkt"]
+
+This module contains all of the bindings to the Chipmunk binaries.
+Require this file if you want immediate access to the chipmunk FFI bindings.
+
+Please refer to the @link["http://chipmunk-physics.net/documentation.php"]{official documentation} for a complete overview of all procedures.
 
 @section{Demos}
 

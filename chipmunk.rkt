@@ -34,7 +34,10 @@
 
 ;; Basic types
 
-(provide/ffi INFINITY)
+(provide
+ (rename-out [INFINITY infinity]
+             [CP_ALL_LAYERS cp-all-layers]
+             [CP_NO_GROUP cp-no-group]))
 
 ;; Vector operations
 
