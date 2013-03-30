@@ -1,2 +1,5 @@
 compiled/
 *.bak
+docs/*.js
+docs/*.html
+docs/*.css
