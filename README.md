@@ -3,10 +3,7 @@ Racket Physics Library
 
 An experimental physics engine for the Racket language.
 
-Announcement
-============
-
-I'd very much like to automate the process of generating FFI bindings. If anyone knows how to help, please contact me!
+**Notice:** This library is awaiting the completion of [AutoFFI](https://github.com/samvv/auto-ffi) for generating its FFI bindings.
 
 # Credits
 
