@@ -5,7 +5,7 @@ An experimental physics engine for the Racket language.
 
 ## Under the hood 
 
-**ramunk** depends on [AutoFFI](http://github.com/samvv/AutoFFI) for generating its bindings.
+**ramunk** depends on [AutoFFI](http://github.com/samvv/racket-autoffi) for generating its bindings.
 
 ## Unsupported platforms
 
