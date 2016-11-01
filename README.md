@@ -3,11 +3,18 @@ Racket Physics Library
 
 An experimental physics engine for the Racket language.
 
-## Troubleshooting
+## Under the hood 
+
+**ramunk** depends on [AutoFFI](http://github.com/samvv/AutoFFI) for generating its bindings.
+
+## Unsupported platforms
 
 We provide working copies of the chipmunk phyics library for a
 variety of platforms. However, not all platforms are supported
-out-of-the-box, so you might need to follow the following instructions.
+out-of-the-box, so you might need to
+[open an issue](http://github.com/samvv/ramunk/issues/new).
+
+If you need a binary right now, you can use the following instructions.
 
 ### On UNIX-like platforms
 
