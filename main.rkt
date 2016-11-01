@@ -1,19 +1,8 @@
-#lang racket/base
+#lang racket
 
-(require racket/class
-         
-         "vector.rkt"
-         "shapes.rkt"
-         "body.rkt"
-         "constraint.rkt"
-         "space.rkt")
+(require autoffi)
 
-(provide (all-from-out
-          
-          racket/class
-          
-          "vector.rkt"
-          "shapes.rkt"
-          "body.rkt"
-          "constraint.rkt"
-          "space.rkt"))
+(require/foreign "lib/chipmunk")
+
+(provide (all-defined-out))
+
