@@ -1,6 +1,8 @@
 Racket Physics Library
 ======================
 
+[![Build Status](https://travis-ci.org/samvv/ramunk.svg?branch=master)](https://travis-ci.org/samvv/ramunk)
+
 An experimental physics engine for the Racket language.
 
 ## Under the hood 
