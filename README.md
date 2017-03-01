@@ -3,31 +3,26 @@ Racket Physics Library
 
 [![Build Status](https://travis-ci.org/samvv/ramunk.svg?branch=master)](https://travis-ci.org/samvv/ramunk)
 
-An experimental physics engine for the Racket language.
+Bindings to the [Chipmunk physics engine](https://chipmunk-physics.org) for the
+[Racket](https://racket-lang.org) language.
 
 ## Under the hood 
 
 **ramunk** depends on [AutoFFI](http://github.com/samvv/racket-autoffi) for generating its bindings.
+The process is fully automated, enabling rapid updates of this library to newer versions of Chipmunk.
 
-## Unsupported platforms
+## Unsupported Platforms
 
-We provide working copies of the chipmunk phyics library for a
-variety of platforms. However, not all platforms are supported
-out-of-the-box, so you might need to
-[open an issue](http://github.com/samvv/ramunk/issues/new).
+We currently only support macOS Sierra due to the young nature of the
+[AutoFFI](https://github.com/AutoFFI/AutoFFI) that is used under the hood. If
+you want to see your platform supported, you can help out by solving [one of
+the issues](https://github.com/AutoFFI/AutoFFI/issues) regarding cross-platform
+builds.
 
-If you need a binary right now, you can use the following instructions.
-
-### On UNIX-like platforms
-
-A simple `make`-command in the source directory should provide you
-with a working binary on most platforms. It creates a new
-build-directory, runs _cmake_ and _make_ in it, and copies the
-resulting binary to our bin-directory.
-
-### On Windows
-
-This is a work in progress.
+For UNIX-like systems, a simple `make`-command in the source directory should
+provide you with a working binary on most platforms. It creates a new
+build-directory, runs _cmake_ and _make_ in it, and copies the resulting binary
+to our bin-directory.
 
 ## Credits
 
