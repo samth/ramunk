@@ -2,7 +2,7 @@
 
 (require autoffi)
 
-(require/foreign "lib/chipmunk")
+(require/foreign "bin/chipmunk")
 
 (provide (all-defined-out))
 
