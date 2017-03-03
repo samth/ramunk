@@ -1,4 +1,16 @@
 language: c
-compiler:
-- clang
-- gcc
+matrix:
+  include:
+    - os: linux
+      sudo: true
+      compiler: clang
+      before_install:
+        - sudo add-apt-repository -y ppa:plt/racket
+      install:
+        - sudo apt-get update && sudo apt-get install racket
+    - os: osx
+      install:
+        - brew install racket
+        - brew install autoffi/autoffi/autoffi
+script:
+  make binary
