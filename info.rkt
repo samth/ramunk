@@ -3,3 +3,4 @@
 (define collection "ramunk")
 (define categories '(game physics-engine ffi))
 (define deps '(("autoffi" "0.2.0")))
+(define compile-omit-paths '("examples" "bin" "chipmunk2d" "chipmunk-release"))
