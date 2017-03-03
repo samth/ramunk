@@ -19,7 +19,7 @@ you want to see your platform supported, you can help out by solving [one of
 the issues](https://github.com/AutoFFI/AutoFFI/issues) regarding cross-platform
 builds.
 
-For UNIX-like systems, a simple `make`-command in the source directory should
+For UNIX-like systems, a simple `make binary` in the source directory should
 provide you with a working binary on most platforms. It creates a new
 build-directory, runs _cmake_ and _make_ in it, and copies the resulting binary
 to our bin-directory.
